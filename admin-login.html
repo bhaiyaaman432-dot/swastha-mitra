@@ -37,8 +37,6 @@
         }
         .btn-login:hover { background: var(--navy); }
         #errMsg { color: #dc2626; margin-top: 15px; font-size: 14px; font-weight: bold; }
-        
-        /* 🔴 Naya CSS sirf OTP box ko chupane ke liye */
         .hidden { display: none !important; }
     </style>
 </head>
@@ -49,19 +47,16 @@
         <h2>Admin Portal</h2>
         
         <form id="adminLoginForm">
-            <!-- Username Box -->
             <div class="input-group" id="userGroup">
                 <i class="fa-solid fa-user"></i>
                 <input type="text" id="username" placeholder="Admin Username" required>
             </div>
             
-            <!-- Password Box -->
             <div class="input-group" id="passGroup">
                 <i class="fa-solid fa-lock"></i>
                 <input type="password" id="password" placeholder="Admin Password" required>
             </div>
             
-            <!-- 🔴 Naya: OTP Box (Shuru mein hidden rahega) -->
             <div class="input-group hidden" id="otpGroup">
                 <i class="fa-solid fa-key"></i>
                 <input type="number" id="otp" placeholder="Enter 6-digit OTP from Email">
@@ -73,7 +68,6 @@
     </div>
 
     <script>
-        // 🔴 Naya: Ye check karega ki abhi Password dalna hai ya OTP
         let isOtpStep = false; 
 
         document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
@@ -81,11 +75,11 @@
             const btn = document.getElementById('loginBtn');
             const errMsg = document.getElementById('errMsg');
             
-            errMsg.style.color = '#dc2626'; // Default lal rang error ke liye
+            errMsg.style.color = '#dc2626';
             errMsg.innerText = ""; 
 
             if (!isOtpStep) {
-                // ============== STEP 1: PASSWORD CHECK ==============
+                // STEP 1: PASSWORD CHECK
                 btn.innerHTML = 'Checking...'; btn.disabled = true;
                 const user = document.getElementById('username').value;
                 const pass = document.getElementById('password').value;
@@ -99,28 +93,41 @@
                     const result = await res.json();
                     
                     if(result.success && result.requireOtp) {
-                        // Password sahi hai, ab OTP maango!
+                        // Password sahi hai! Ab Browser seedha Web3Forms ko mail bhejega
+                        errMsg.innerText = "Sending OTP to Email...";
+                        
+                        try {
+                            await fetch("https://api.web3forms.com/submit", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                                body: JSON.stringify({
+                                    access_key: "d77bb41e-df82-4fed-94b2-bd30bb7a51a5", // Teri Access Key
+                                    name: "Swastha Mitra Admin",
+                                    email: "bhaiyaaman432@gmail.com",
+                                    subject: "Admin Panel Login - Security OTP",
+                                    message: "Aapka Swastha Mitra Admin Login OTP hai: " + result.otp
+                                })
+                            });
+                        } catch (mailErr) {
+                            console.log("Browser mail send warning:", mailErr);
+                        }
+
                         isOtpStep = true;
                         
-                        // Purane dabbe chupao aur naya OTP dabba dikhao
                         document.getElementById('userGroup').classList.add('hidden');
                         document.getElementById('passGroup').classList.add('hidden');
                         document.getElementById('otpGroup').classList.remove('hidden');
                         
-                        // OTP ko zaroori banao
                         document.getElementById('otp').required = true;
                         document.getElementById('username').required = false;
                         document.getElementById('password').required = false;
                         
-                        // Button ka text badlo
                         btn.innerHTML = 'Verify OTP';
                         btn.disabled = false;
                         
-                        // Success message hara (green) dikhao
                         errMsg.style.color = '#16a34a'; 
                         errMsg.innerText = "OTP sent to your Email!";
                     } else {
-                        // Galat password
                         errMsg.innerText = result.message || "Incorrect Username or Password!";
                         btn.innerHTML = 'Secure Login'; btn.disabled = false;
                     }
@@ -130,7 +137,7 @@
                 }
 
             } else {
-                // ============== STEP 2: OTP CHECK ==============
+                // STEP 2: OTP CHECK
                 btn.innerHTML = 'Verifying...'; btn.disabled = true;
                 const otpValue = document.getElementById('otp').value;
 
@@ -145,7 +152,7 @@
                     if(result.success) {
                         errMsg.style.color = '#16a34a';
                         errMsg.innerText = "Login Successful!";
-                        window.location.href = '/admin'; // Dashboard par bhej do
+                        window.location.href = '/admin'; 
                     } else {
                         errMsg.innerText = result.message || "Incorrect OTP!";
                         btn.innerHTML = 'Verify OTP'; btn.disabled = false;

@@ -59,8 +59,8 @@ app.get("/admin", checkAuth, (req, res) => {
     res.sendFile(path.join(__dirname, "admin.html"));
 });
 
-// 🔑 Admin Login Check (🔴 UPDATED: Web3Forms API fixed with 'name' field)
-app.post("/api/admin-login", async (req, res) => {
+// 🔑 Admin Login Check (Sirf OTP generate karke frontend ko dega)
+app.post("/api/admin-login", (req, res) => {
     const { username, password } = req.body;
     
     const ADMIN_USER = "admin";
@@ -70,40 +70,8 @@ app.post("/api/admin-login", async (req, res) => {
         const otp = Math.floor(100000 + Math.random() * 900000).toString(); 
         req.session.pendingOtp = otp; 
 
-        try {
-            const response = await fetch("https://api.web3forms.com/submit", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Accept": "application/json"
-                },
-                body: JSON.stringify({
-                    access_key: "d77bb41e-df82-4fed-94b2-bd30bb7a51a5", // Teri Access Key
-                    name: "Swastha Mitra Admin", // Web3Forms ke liye zaroori field
-                    email: "bhaiyaaman432@gmail.com",
-                    subject: "Admin Panel Login - Security OTP",
-                    message: `Swastha Mitra Admin Login OTP is: ${otp}`
-                })
-            });
-
-            const textResponse = await response.text();
-            let result;
-            try {
-                result = JSON.parse(textResponse);
-            } catch (e) {
-                console.log("Non-JSON response from API:", textResponse);
-                return res.json({ success: false, message: "Email API response error." });
-            }
-            
-            if (result.success) {
-                res.json({ success: true, requireOtp: true, message: "Password sahi hai! OTP aapki email par bhej diya gaya hai." });
-            } else {
-                res.json({ success: false, message: result.message || "Email bhejne mein dikkat aayi." });
-            }
-        } catch (error) {
-            console.log("API Error:", error);
-            res.json({ success: false, message: "Server connection error." });
-        }
+        // Frontend ko success aur OTP dono bhej do taaki browser direct mail bhej sake
+        res.json({ success: true, requireOtp: true, otp: otp, message: "Password sahi hai!" });
     } else {
         res.json({ success: false, message: "Galat Username ya Password!" });
     }
