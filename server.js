@@ -2,7 +2,7 @@ const express = require("express");
 const path = require("path");
 const Database = require("better-sqlite3");
 const session = require("express-session");
-const nodemailer = require("nodemailer"); // 🔴 Naya: Email bhejne ke liye add kiya
+const nodemailer = require("nodemailer"); 
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,12 +15,14 @@ app.use(session({
     cookie: { secure: false }
 }));
 
-// 🔴 Naya: Nodemailer Transporter Setup (Tera Google App Password yahan set hai)
+// 🔴 NAYA UPDATE: Timeout error ko theek karne ke liye (Host aur Port add kiya)
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, 
     auth: {
-        user: 'bhaiyaaman432@gmail.com', // Teri email
-        pass: 'ysrfpvueutddqbxc'         // Tera 16-digit secret app password
+        user: 'bhaiyaaman432@gmail.com', 
+        pass: 'ysrfpvueutddqbxc'         
     }
 });
 
@@ -69,7 +71,7 @@ app.get("/admin", checkAuth, (req, res) => {
     res.sendFile(path.join(__dirname, "admin.html"));
 });
 
-// 🔑 Admin Login Check (🔴 UPDATE KIYA HAI OTP BHEJNE KE LIYE)
+// 🔑 Admin Login Check
 app.post("/api/admin-login", async (req, res) => {
     const { username, password } = req.body;
     
@@ -77,15 +79,13 @@ app.post("/api/admin-login", async (req, res) => {
     const ADMIN_PASS = "12345";
 
     if (username === ADMIN_USER && password === ADMIN_PASS) {
-        // Agar password sahi hai, toh OTP generate karo
-        const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6 digit OTP
-        req.session.pendingOtp = otp; // Session mein OTP save kiya (temporarily)
+        const otp = Math.floor(100000 + Math.random() * 900000).toString(); 
+        req.session.pendingOtp = otp; 
 
         try {
-            // Email Bhejne ka code
             await transporter.sendMail({
                 from: '"Swastha Mitra Security" <bhaiyaaman432@gmail.com>',
-                to: 'bhaiyaaman432@gmail.com', // Tumhe hi mail aayega
+                to: 'bhaiyaaman432@gmail.com',
                 subject: 'Admin Panel Login - Security OTP',
                 html: `<h3>Swastha Mitra Admin Login</h3>
                        <p>Kisi ne Admin Panel login karne ki koshish ki hai.</p>
@@ -93,10 +93,9 @@ app.post("/api/admin-login", async (req, res) => {
                        <p>Yeh OTP kisi ke sath share na karein.</p>`
             });
             
-            // Client ko batao ki password theek hai, ab OTP dikhao
             res.json({ success: true, requireOtp: true, message: "Password sahi hai! OTP aapki email par bhej diya gaya hai." });
         } catch (error) {
-            console.log("Email Error:", error);
+            console.log("Email Error:", error); // Yeh server log mein error dikhayega
             res.json({ success: false, message: "Email bhejne mein dikkat aayi." });
         }
     } else {
@@ -104,13 +103,13 @@ app.post("/api/admin-login", async (req, res) => {
     }
 });
 
-// 🔴 NAYA API: OTP Check Karne Ke Liye
+// 🔴 API: OTP Check Karne Ke Liye
 app.post("/api/admin-verify-otp", (req, res) => {
     const { otp } = req.body;
 
     if (req.session.pendingOtp && req.session.pendingOtp === otp) {
-        req.session.loggedIn = true; // Asli Login ab yahan hoga
-        req.session.pendingOtp = null; // OTP delete kar do
+        req.session.loggedIn = true; 
+        req.session.pendingOtp = null; 
         res.json({ success: true, message: "Welcome Admin! Login Successful." });
     } else {
         res.json({ success: false, message: "Galat OTP! Kripaya sahi OTP dalein." });
