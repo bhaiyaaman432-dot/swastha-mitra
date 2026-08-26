@@ -59,7 +59,7 @@ app.get("/admin", checkAuth, (req, res) => {
     res.sendFile(path.join(__dirname, "admin.html"));
 });
 
-// 🔑 Admin Login Check (🔴 UPDATE: VIP Web3Forms API bypass)
+// 🔑 Admin Login Check (🔴 UPDATED: Web3Forms API fixed with 'name' field)
 app.post("/api/admin-login", async (req, res) => {
     const { username, password } = req.body;
     
@@ -71,7 +71,6 @@ app.post("/api/admin-login", async (req, res) => {
         req.session.pendingOtp = otp; 
 
         try {
-            // Render ki Firewall bypass karne ke liye API call
             const response = await fetch("https://api.web3forms.com/submit", {
                 method: "POST",
                 headers: {
@@ -80,26 +79,30 @@ app.post("/api/admin-login", async (req, res) => {
                 },
                 body: JSON.stringify({
                     access_key: "d77bb41e-df82-4fed-94b2-bd30bb7a51a5", // Teri Access Key
-                    email: "bhaiyaaman432@gmail.com", // Kahan mail bhejna hai
-                    from_name: "Swastha Mitra Security",
+                    name: "Swastha Mitra Admin", // Web3Forms ke liye zaroori field
+                    email: "bhaiyaaman432@gmail.com",
                     subject: "Admin Panel Login - Security OTP",
-                    message: `<h3>Swastha Mitra Admin Login</h3>
-                              <p>Kisi ne Admin Panel login karne ki koshish ki hai.</p>
-                              <p>Aapka Login OTP hai: <strong><span style="font-size:24px; color:green;">${otp}</span></strong></p>
-                              <p>Yeh OTP kisi ke sath share na karein.</p>`
+                    message: `Swastha Mitra Admin Login OTP is: ${otp}`
                 })
             });
 
-            const result = await response.json();
+            const textResponse = await response.text();
+            let result;
+            try {
+                result = JSON.parse(textResponse);
+            } catch (e) {
+                console.log("Non-JSON response from API:", textResponse);
+                return res.json({ success: false, message: "Email API response error." });
+            }
             
             if (result.success) {
                 res.json({ success: true, requireOtp: true, message: "Password sahi hai! OTP aapki email par bhej diya gaya hai." });
             } else {
-                res.json({ success: false, message: "Email API ne error diya." });
+                res.json({ success: false, message: result.message || "Email bhejne mein dikkat aayi." });
             }
         } catch (error) {
             console.log("API Error:", error);
-            res.json({ success: false, message: "Email bhejne mein dikkat aayi." });
+            res.json({ success: false, message: "Server connection error." });
         }
     } else {
         res.json({ success: false, message: "Galat Username ya Password!" });
