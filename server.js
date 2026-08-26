@@ -74,10 +74,10 @@ app.post("/api/admin-login", (req, res) => {
     }
 });
 
-// 🚪 NAYA: Admin Logout API (Yaadasht Delete Karne ke liye)
+// 🚪 Admin Logout API
 app.get("/api/admin-logout", (req, res) => {
-    req.session.destroy(); // Yahan Guard session/memory delete kar dega
-    res.redirect("/admin-login"); // Wapas login page par fek dega
+    req.session.destroy(); 
+    res.redirect("/admin-login"); 
 });
 
 // API 1: Register
@@ -171,7 +171,7 @@ app.post("/login", (req, res) => {
     }
 });
 
-// Server Start
-const server = app.listen(PORT, () => {
-    console.log(`Swastha Mitra server is RUNNING at http://localhost:${PORT}`);
+// Server Start (Render "0.0.0.0" compatibility fix added here)
+app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Swastha Mitra server is RUNNING at port ${PORT}`);
 });
