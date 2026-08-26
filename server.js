@@ -2,7 +2,6 @@ const express = require("express");
 const path = require("path");
 const Database = require("better-sqlite3");
 const session = require("express-session");
-const nodemailer = require("nodemailer"); 
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,21 +13,6 @@ app.use(session({
     saveUninitialized: true,
     cookie: { secure: false }
 }));
-
-// 🔴 BRAHMASTRA UPDATE: Render Firewall Bypass (Port 587)
-const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, 
-    requireTLS: true,
-    auth: {
-        user: 'bhaiyaaman432@gmail.com', 
-        pass: 'ysrfpvueutddqbxc'         
-    },
-    tls: {
-        rejectUnauthorized: false // Render ki strict checking ko bypass karne ke liye
-    }
-});
 
 // Database Connection
 const db = new Database("swasthamitra.db");
@@ -75,7 +59,7 @@ app.get("/admin", checkAuth, (req, res) => {
     res.sendFile(path.join(__dirname, "admin.html"));
 });
 
-// 🔑 Admin Login Check
+// 🔑 Admin Login Check (🔴 UPDATE: VIP Web3Forms API bypass)
 app.post("/api/admin-login", async (req, res) => {
     const { username, password } = req.body;
     
@@ -87,19 +71,34 @@ app.post("/api/admin-login", async (req, res) => {
         req.session.pendingOtp = otp; 
 
         try {
-            await transporter.sendMail({
-                from: '"Swastha Mitra Security" <bhaiyaaman432@gmail.com>',
-                to: 'bhaiyaaman432@gmail.com',
-                subject: 'Admin Panel Login - Security OTP',
-                html: `<h3>Swastha Mitra Admin Login</h3>
-                       <p>Kisi ne Admin Panel login karne ki koshish ki hai.</p>
-                       <p>Aapka Login OTP hai: <strong><span style="font-size:24px; color:green;">${otp}</span></strong></p>
-                       <p>Yeh OTP kisi ke sath share na karein.</p>`
+            // Render ki Firewall bypass karne ke liye API call
+            const response = await fetch("https://api.web3forms.com/submit", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
+                body: JSON.stringify({
+                    access_key: "d77bb41e-df82-4fed-94b2-bd30bb7a51a5", // Teri Access Key
+                    email: "bhaiyaaman432@gmail.com", // Kahan mail bhejna hai
+                    from_name: "Swastha Mitra Security",
+                    subject: "Admin Panel Login - Security OTP",
+                    message: `<h3>Swastha Mitra Admin Login</h3>
+                              <p>Kisi ne Admin Panel login karne ki koshish ki hai.</p>
+                              <p>Aapka Login OTP hai: <strong><span style="font-size:24px; color:green;">${otp}</span></strong></p>
+                              <p>Yeh OTP kisi ke sath share na karein.</p>`
+                })
             });
+
+            const result = await response.json();
             
-            res.json({ success: true, requireOtp: true, message: "Password sahi hai! OTP aapki email par bhej diya gaya hai." });
+            if (result.success) {
+                res.json({ success: true, requireOtp: true, message: "Password sahi hai! OTP aapki email par bhej diya gaya hai." });
+            } else {
+                res.json({ success: false, message: "Email API ne error diya." });
+            }
         } catch (error) {
-            console.log("Email Error:", error);
+            console.log("API Error:", error);
             res.json({ success: false, message: "Email bhejne mein dikkat aayi." });
         }
     } else {
