@@ -37,6 +37,9 @@
         }
         .btn-login:hover { background: var(--navy); }
         #errMsg { color: #dc2626; margin-top: 15px; font-size: 14px; font-weight: bold; }
+        
+        /* 🔴 Naya CSS sirf OTP box ko chupane ke liye */
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
@@ -46,45 +49,111 @@
         <h2>Admin Portal</h2>
         
         <form id="adminLoginForm">
-            <div class="input-group">
+            <!-- Username Box -->
+            <div class="input-group" id="userGroup">
                 <i class="fa-solid fa-user"></i>
                 <input type="text" id="username" placeholder="Admin Username" required>
             </div>
-            <div class="input-group">
+            
+            <!-- Password Box -->
+            <div class="input-group" id="passGroup">
                 <i class="fa-solid fa-lock"></i>
                 <input type="password" id="password" placeholder="Admin Password" required>
             </div>
+            
+            <!-- 🔴 Naya: OTP Box (Shuru mein hidden rahega) -->
+            <div class="input-group hidden" id="otpGroup">
+                <i class="fa-solid fa-key"></i>
+                <input type="number" id="otp" placeholder="Enter 6-digit OTP from Email">
+            </div>
+
             <button type="submit" class="btn-login" id="loginBtn">Secure Login</button>
             <div id="errMsg"></div>
         </form>
     </div>
 
     <script>
+        // 🔴 Naya: Ye check karega ki abhi Password dalna hai ya OTP
+        let isOtpStep = false; 
+
         document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('loginBtn');
-            btn.innerHTML = 'Checking...'; btn.disabled = true;
+            const errMsg = document.getElementById('errMsg');
+            
+            errMsg.style.color = '#dc2626'; // Default lal rang error ke liye
+            errMsg.innerText = ""; 
 
-            const user = document.getElementById('username').value;
-            const pass = document.getElementById('password').value;
+            if (!isOtpStep) {
+                // ============== STEP 1: PASSWORD CHECK ==============
+                btn.innerHTML = 'Checking...'; btn.disabled = true;
+                const user = document.getElementById('username').value;
+                const pass = document.getElementById('password').value;
 
-            try {
-                const res = await fetch('/api/admin-login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: user, password: pass })
-                });
-                const result = await res.json();
-                
-                if(result.success) {
-                    window.location.href = '/admin'; // Login successful, go to dashboard
-                } else {
-                    document.getElementById('errMsg').innerText = "Incorrect Username or Password!";
+                try {
+                    const res = await fetch('/api/admin-login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: user, password: pass })
+                    });
+                    const result = await res.json();
+                    
+                    if(result.success && result.requireOtp) {
+                        // Password sahi hai, ab OTP maango!
+                        isOtpStep = true;
+                        
+                        // Purane dabbe chupao aur naya OTP dabba dikhao
+                        document.getElementById('userGroup').classList.add('hidden');
+                        document.getElementById('passGroup').classList.add('hidden');
+                        document.getElementById('otpGroup').classList.remove('hidden');
+                        
+                        // OTP ko zaroori banao
+                        document.getElementById('otp').required = true;
+                        document.getElementById('username').required = false;
+                        document.getElementById('password').required = false;
+                        
+                        // Button ka text badlo
+                        btn.innerHTML = 'Verify OTP';
+                        btn.disabled = false;
+                        
+                        // Success message hara (green) dikhao
+                        errMsg.style.color = '#16a34a'; 
+                        errMsg.innerText = "OTP sent to your Email!";
+                    } else {
+                        // Galat password
+                        errMsg.innerText = result.message || "Incorrect Username or Password!";
+                        btn.innerHTML = 'Secure Login'; btn.disabled = false;
+                    }
+                } catch (error) {
+                    errMsg.innerText = "Server Error!";
+                    btn.innerHTML = 'Secure Login'; btn.disabled = false;
                 }
-            } catch (error) {
-                document.getElementById('errMsg').innerText = "Server Error!";
-            } finally {
-                btn.innerHTML = 'Secure Login'; btn.disabled = false;
+
+            } else {
+                // ============== STEP 2: OTP CHECK ==============
+                btn.innerHTML = 'Verifying...'; btn.disabled = true;
+                const otpValue = document.getElementById('otp').value;
+
+                try {
+                    const res = await fetch('/api/admin-verify-otp', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ otp: otpValue })
+                    });
+                    const result = await res.json();
+                    
+                    if(result.success) {
+                        errMsg.style.color = '#16a34a';
+                        errMsg.innerText = "Login Successful!";
+                        window.location.href = '/admin'; // Dashboard par bhej do
+                    } else {
+                        errMsg.innerText = result.message || "Incorrect OTP!";
+                        btn.innerHTML = 'Verify OTP'; btn.disabled = false;
+                    }
+                } catch (error) {
+                    errMsg.innerText = "Server Error!";
+                    btn.innerHTML = 'Verify OTP'; btn.disabled = false;
+                }
             }
         });
     </script>
