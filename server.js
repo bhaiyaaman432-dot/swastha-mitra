@@ -15,14 +15,18 @@ app.use(session({
     cookie: { secure: false }
 }));
 
-// 🔴 NAYA UPDATE: Timeout error ko theek karne ke liye (Host aur Port add kiya)
+// 🔴 BRAHMASTRA UPDATE: Render Firewall Bypass (Port 587)
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, 
+    port: 587,
+    secure: false, 
+    requireTLS: true,
     auth: {
         user: 'bhaiyaaman432@gmail.com', 
         pass: 'ysrfpvueutddqbxc'         
+    },
+    tls: {
+        rejectUnauthorized: false // Render ki strict checking ko bypass karne ke liye
     }
 });
 
@@ -95,7 +99,7 @@ app.post("/api/admin-login", async (req, res) => {
             
             res.json({ success: true, requireOtp: true, message: "Password sahi hai! OTP aapki email par bhej diya gaya hai." });
         } catch (error) {
-            console.log("Email Error:", error); // Yeh server log mein error dikhayega
+            console.log("Email Error:", error);
             res.json({ success: false, message: "Email bhejne mein dikkat aayi." });
         }
     } else {
