@@ -1,7 +1,7 @@
 const express = require("express");
 const path = require("path");
-const Database = require("better-sqlite3");
 const session = require("express-session");
+const { createClient } = require("@libsql/client"); // 🔴 Turso Cloud Database Client
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,10 +14,14 @@ app.use(session({
     cookie: { secure: false }
 }));
 
-// Database Connection
-const db = new Database("swasthamitra.db");
+// 🔴 TURSO CLOUD DATABASE CONNECTION (Credentials Added)
+const db = createClient({
+    url: "libsql://swasthamitra-bhaiyaaman432-dot.aws-ap-south-1.turso.io",
+    authToken: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODgxMTAxNTgsImlkIjoiMDFhMDUzYTctYmEwMS03NmRiLTg0MmEtMjYwNmVlMmFhYWUzIiwia2lkIjoiZl94Rmg1ZDdTOWdIXzNvdUdlRnFJbjd6Qy1RVlY2dU45bGNQeTVlYlpKTSIsInJpZCI6ImE5YWQ0ZmE5LTE0MmQtNDU5MC05NDhkLTZhMzgwYjcyZDM1YiJ9.lJoM-_kg4LJZgjZhmKM0-cNolJ_fUYS5wUoAAsDXixirUBCXiuSIUhoaSedR5ax7sEfH99P5YVraGOKyyK2ECQ"
+});
 
-db.prepare(`
+// Table Create karna (Cloud par)
+db.execute(`
     CREATE TABLE IF NOT EXISTS members (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         membership_id TEXT,
@@ -34,7 +38,8 @@ db.prepare(`
         amount_paid TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
-`).run();
+`).then(() => console.log("Cloud Database Table Ready!"))
+  .catch((err) => console.log("DB Table Error:", err));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -96,8 +101,8 @@ app.get("/api/admin-logout", (req, res) => {
     res.redirect("/admin-login"); 
 });
 
-// API 1: Register
-app.post("/register", (req, res) => {
+// API 1: Register (Cloud DB Insert)
+app.post("/register", async (req, res) => {
     try {
         const { fullName, mobile, email, age, familyMembers, address, health, planType } = req.body;
         
@@ -120,69 +125,80 @@ app.post("/register", (req, res) => {
         
         const expiryDate = expiryObj.toISOString().split('T')[0];
 
-        const stmt = db.prepare(`
-            INSERT INTO members (membership_id, full_name, mobile, email, age, family_members, address, health, payment_date, start_date, expiry_date, amount_paid)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `);
+        await db.execute({
+            sql: `INSERT INTO members (membership_id, full_name, mobile, email, age, family_members, address, health, payment_date, start_date, expiry_date, amount_paid)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            args: [membershipId, fullName, mobile, email, age, familyMembers, address, health, paymentDate, paymentDate, expiryDate, amountPaid]
+        });
         
-        stmt.run(membershipId, fullName, mobile, email, age, familyMembers, address, health, paymentDate, paymentDate, expiryDate, amountPaid);
         res.json({ success: true, message: "Success!", membershipId: membershipId });
     } catch (error) {
+        console.log(error);
         res.status(500).json({ success: false, message: "Server error occurred." });
     }
 });
 
-// API 2: Get all Members
-app.get("/admin/members", (req, res) => {
+// API 2: Get all Members (Cloud DB Select)
+app.get("/admin/members", async (req, res) => {
     try {
-        const rows = db.prepare("SELECT * FROM members ORDER BY id DESC").all();
-        res.json({ success: true, members: rows });
+        const result = await db.execute("SELECT * FROM members ORDER BY id DESC");
+        res.json({ success: true, members: result.rows });
     } catch (error) {
+        console.log(error);
         res.status(500).json({ success: false, message: "Database error" });
     }
 });
 
-// API 3: Delete Member
-app.delete("/admin/members/:id", (req, res) => {
+// API 3: Delete Member (Cloud DB Delete)
+app.delete("/admin/members/:id", async (req, res) => {
     try {
         const { id } = req.params;
-        db.prepare("DELETE FROM members WHERE id = ?").run(id);
+        await db.execute({
+            sql: "DELETE FROM members WHERE id = ?",
+            args: [id]
+        });
         res.json({ success: true, message: "Member deleted successfully!" });
     } catch (error) {
+        console.log(error);
         res.status(500).json({ success: false, message: "Error deleting member." });
     }
 });
 
-// API 4: Update Member
-app.put("/admin/members/:id", (req, res) => {
+// API 4: Update Member (Cloud DB Update)
+app.put("/admin/members/:id", async (req, res) => {
     try {
         const { id } = req.params;
         const { fullName, mobile, email, age, familyMembers, address, health } = req.body;
         
-        const stmt = db.prepare(`
-            UPDATE members 
-            SET full_name = ?, mobile = ?, email = ?, age = ?, family_members = ?, address = ?, health = ?
-            WHERE id = ?
-        `);
-        stmt.run(fullName, mobile, email, age, familyMembers, address, health, id);
+        await db.execute({
+            sql: `UPDATE members 
+                  SET full_name = ?, mobile = ?, email = ?, age = ?, family_members = ?, address = ?, health = ?
+                  WHERE id = ?`,
+            args: [fullName, mobile, email, age, familyMembers, address, health, id]
+        });
         res.json({ success: true, message: "Member details updated successfully!" });
     } catch (error) {
+        console.log(error);
         res.status(500).json({ success: false, message: "Error updating member." });
     }
 });
 
-// API 5: Customer Login
-app.post("/login", (req, res) => {
+// API 5: Customer Login (Cloud DB Select)
+app.post("/login", async (req, res) => {
     try {
         const { mobile } = req.body;
-        const member = db.prepare("SELECT * FROM members WHERE mobile = ?").get(mobile);
+        const result = await db.execute({
+            sql: "SELECT * FROM members WHERE mobile = ?",
+            args: [mobile]
+        });
         
-        if (member) {
-            res.json({ success: true, message: "Login successful!", member: member });
+        if (result.rows.length > 0) {
+            res.json({ success: true, message: "Login successful!", member: result.rows[0] });
         } else {
             res.json({ success: false, message: "Mobile number not found!" });
         }
     } catch (error) {
+        console.log(error);
         res.status(500).json({ success: false, message: "Something went wrong." });
     }
 });
