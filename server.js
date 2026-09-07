@@ -20,10 +20,10 @@ const db = createClient({
     authToken: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODgxMTAxNTgsImlkIjoiMDFhMDUzYTctYmEwMS03NmRiLTg0MmEtMjYwNmVlMmFhYWUzIiwia2lkIjoiZl94Rmg1ZDdTOWdIXzNvdUdlRnFJbjd6Qy1RVlY2dU45bGNQeTVlYlpKTSIsInJpZCI6ImE5YWQ0ZmE5LTE0MmQtNDU5MC05NDhkLTZhMzgwYjcyZDM1YiJ9.lJoM-_kg4LJZgjZhmKM0-cNolJ_fUYS5wUoAAsDXixirUBCXiuSIUhoaSedR5ax7sEfH99P5YVraGOKyyK2ECQ"
 });
 
-// 🛠️ Table Reset karke naye columns ke sath create karna
+// 🛠️ Table Create karna (Data safe rakhne ke liye DROP hata diya hai)
 async function initDB() {
     try {
-        await db.execute("DROP TABLE IF EXISTS members;"); // Purani table hata raha hai
+        // await db.execute("DROP TABLE IF EXISTS members;"); // Data delete na ho isliye band kar diya hai
         await db.execute(`
             CREATE TABLE IF NOT EXISTS members (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,7 +42,7 @@ async function initDB() {
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         `);
-        console.log("Cloud Database Table Ready with New Fields!");
+        console.log("Cloud Database Table Ready!");
     } catch (err) {
         console.log("DB Table Error:", err);
     }
@@ -106,10 +106,13 @@ app.get("/api/admin-logout", (req, res) => {
     res.redirect("/admin-login"); 
 });
 
-// API 1: Register (Cloud DB Insert with Admission Date & Remaining Days)
+// API 1: Register (Family Count undefined bug fixed)
 app.post("/register", async (req, res) => {
     try {
-        const { fullName, mobile, email, age, familyMembers, address, health, planType } = req.body;
+        const { fullName, mobile, email, age, address, health, planType } = req.body;
+        
+        // Safe check for family count from any form field variation
+        const familyCount = req.body.familyMembers || req.body.family || req.body.family_count || req.body.family_members || 1;
         
         const membershipId = "SM-" + Math.floor(100000 + Math.random() * 900000);
         const admissionDate = new Date().toISOString().split('T')[0];
@@ -137,7 +140,7 @@ app.post("/register", async (req, res) => {
         await db.execute({
             sql: `INSERT INTO members (membership_id, full_name, mobile, email, age, family_count, address, health, admission_date, expiry_date, amount_paid, remaining_days)
                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            args: [membershipId, fullName, mobile, email, age, familyMembers, address, health, admissionDate, expiryDate, amountPaid, remainingDays]
+            args: [membershipId, fullName, mobile, email, age, familyCount, address, health, admissionDate, expiryDate, amountPaid, remainingDays]
         });
         
         res.json({ success: true, message: "Success!", membershipId: membershipId });
@@ -147,11 +150,16 @@ app.post("/register", async (req, res) => {
     }
 });
 
-// API 2: Get all Members
+// API 2: Get all Members (Mapped with clean Sr. No.)
 app.get("/admin/members", async (req, res) => {
     try {
         const result = await db.execute("SELECT * FROM members ORDER BY id DESC");
-        res.json({ success: true, members: result.rows });
+        // Add a clean serial number property for display/export
+        const formattedMembers = result.rows.map((row, index) => ({
+            ...row,
+            sr_no: result.rows.length - index // Clean Serial Number
+        }));
+        res.json({ success: true, members: formattedMembers });
     } catch (error) {
         console.log("Fetch Members Error:", error);
         res.status(500).json({ success: false, message: "Database error" });
@@ -177,13 +185,14 @@ app.delete("/admin/members/:id", async (req, res) => {
 app.put("/admin/members/:id", async (req, res) => {
     try {
         const { id } = req.params;
-        const { fullName, mobile, email, age, familyMembers, address, health } = req.body;
+        const { fullName, mobile, email, age, address, health } = req.body;
+        const familyCount = req.body.familyMembers || req.body.family || req.body.family_count || req.body.family_members || 1;
         
         await db.execute({
             sql: `UPDATE members 
                   SET full_name = ?, mobile = ?, email = ?, age = ?, family_count = ?, address = ?, health = ?
                   WHERE id = ?`,
-            args: [fullName, mobile, email, age, familyMembers, address, health, id]
+            args: [fullName, mobile, email, age, familyCount, address, health, id]
         });
         res.json({ success: true, message: "Member details updated successfully!" });
     } catch (error) {
