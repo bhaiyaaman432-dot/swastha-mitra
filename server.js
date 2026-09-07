@@ -64,7 +64,7 @@ app.get("/admin", checkAuth, (req, res) => {
     res.sendFile(path.join(__dirname, "admin.html"));
 });
 
-// 🔑 Admin Login Check (Sirf OTP generate karke frontend ko dega)
+// 🔑 Admin Login Check
 app.post("/api/admin-login", (req, res) => {
     const { username, password } = req.body;
     
@@ -75,7 +75,6 @@ app.post("/api/admin-login", (req, res) => {
         const otp = Math.floor(100000 + Math.random() * 900000).toString(); 
         req.session.pendingOtp = otp; 
 
-        // Frontend ko success aur OTP dono bhej do taaki browser direct mail bhej sake
         res.json({ success: true, requireOtp: true, otp: otp, message: "Password sahi hai!" });
     } else {
         res.json({ success: false, message: "Galat Username ya Password!" });
