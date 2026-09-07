@@ -20,10 +20,9 @@ const db = createClient({
     authToken: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODgxMTAxNTgsImlkIjoiMDFhMDUzYTctYmEwMS03NmRiLTg0MmEtMjYwNmVlMmFhYWUzIiwia2lkIjoiZl94Rmg1ZDdTOWdIXzNvdUdlRnFJbjd6Qy1RVlY2dU45bGNQeTVlYlpKTSIsInJpZCI6ImE5YWQ0ZmE5LTE0MmQtNDU5MC05NDhkLTZhMzgwYjcyZDM1YiJ9.lJoM-_kg4LJZgjZhmKM0-cNolJ_fUYS5wUoAAsDXixirUBCXiuSIUhoaSedR5ax7sEfH99P5YVraGOKyyK2ECQ"
 });
 
-// 🛠️ Table Create karna (Data safe rakhne ke liye DROP hata diya hai)
+// 🛠️ Table Create karna
 async function initDB() {
     try {
-        // await db.execute("DROP TABLE IF EXISTS members;"); // Data delete na ho isliye band kar diya hai
         await db.execute(`
             CREATE TABLE IF NOT EXISTS members (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -106,12 +105,10 @@ app.get("/api/admin-logout", (req, res) => {
     res.redirect("/admin-login"); 
 });
 
-// API 1: Register (Family Count undefined bug fixed)
+// API 1: Register
 app.post("/register", async (req, res) => {
     try {
         const { fullName, mobile, email, age, address, health, planType } = req.body;
-        
-        // Safe check for family count from any form field variation
         const familyCount = req.body.familyMembers || req.body.family || req.body.family_count || req.body.family_members || 1;
         
         const membershipId = "SM-" + Math.floor(100000 + Math.random() * 900000);
@@ -132,8 +129,6 @@ app.post("/register", async (req, res) => {
         }
         
         const expiryDate = expiryObj.toISOString().split('T')[0];
-
-        // Remaining Days Calculation
         const diffTime = new Date(expiryDate) - new Date();
         const remainingDays = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
 
@@ -150,14 +145,13 @@ app.post("/register", async (req, res) => {
     }
 });
 
-// API 2: Get all Members (Mapped with clean Sr. No.)
+// API 2: Get all Members
 app.get("/admin/members", async (req, res) => {
     try {
         const result = await db.execute("SELECT * FROM members ORDER BY id DESC");
-        // Add a clean serial number property for display/export
         const formattedMembers = result.rows.map((row, index) => ({
             ...row,
-            sr_no: result.rows.length - index // Clean Serial Number
+            sr_no: result.rows.length - index
         }));
         res.json({ success: true, members: formattedMembers });
     } catch (error) {
