@@ -20,26 +20,34 @@ const db = createClient({
     authToken: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODgxMTAxNTgsImlkIjoiMDFhMDUzYTctYmEwMS03NmRiLTg0MmEtMjYwNmVlMmFhYWUzIiwia2lkIjoiZl94Rmg1ZDdTOWdIXzNvdUdlRnFJbjd6Qy1RVlY2dU45bGNQeTVlYlpKTSIsInJpZCI6ImE5YWQ0ZmE5LTE0MmQtNDU5MC05NDhkLTZhMzgwYjcyZDM1YiJ9.lJoM-_kg4LJZgjZhmKM0-cNolJ_fUYS5wUoAAsDXixirUBCXiuSIUhoaSedR5ax7sEfH99P5YVraGOKyyK2ECQ"
 });
 
-// Table Create karna (Cloud par) - Naye columns ke sath
-db.execute(`
-    CREATE TABLE IF NOT EXISTS members (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        membership_id TEXT,
-        full_name TEXT NOT NULL,
-        mobile TEXT NOT NULL,
-        email TEXT,
-        age INTEGER,
-        family_count INTEGER,
-        address TEXT,
-        health TEXT,
-        admission_date TEXT,
-        expiry_date TEXT,
-        amount_paid TEXT,
-        remaining_days INTEGER,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    )
-`).then(() => console.log("Cloud Database Table Ready with New Fields!"))
-  .catch((err) => console.log("DB Table Error:", err));
+// 🛠️ Table Reset karke naye columns ke sath create karna
+async function initDB() {
+    try {
+        await db.execute("DROP TABLE IF EXISTS members;"); // Purani table hata raha hai
+        await db.execute(`
+            CREATE TABLE IF NOT EXISTS members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                membership_id TEXT,
+                full_name TEXT NOT NULL,
+                mobile TEXT NOT NULL,
+                email TEXT,
+                age INTEGER,
+                family_count INTEGER,
+                address TEXT,
+                health TEXT,
+                admission_date TEXT,
+                expiry_date TEXT,
+                amount_paid TEXT,
+                remaining_days INTEGER,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        console.log("Cloud Database Table Ready with New Fields!");
+    } catch (err) {
+        console.log("DB Table Error:", err);
+    }
+}
+initDB();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -98,13 +106,13 @@ app.get("/api/admin-logout", (req, res) => {
     res.redirect("/admin-login"); 
 });
 
-// API 1: Register (Cloud DB Insert with Admission Date & Remaining Days Calculation)
+// API 1: Register (Cloud DB Insert with Admission Date & Remaining Days)
 app.post("/register", async (req, res) => {
     try {
         const { fullName, mobile, email, age, familyMembers, address, health, planType } = req.body;
         
         const membershipId = "SM-" + Math.floor(100000 + Math.random() * 900000);
-        const admissionDate = new Date().toISOString().split('T')[0]; // Admission Date
+        const admissionDate = new Date().toISOString().split('T')[0];
         
         let expiryObj = new Date();
         let amountPaid = "";
@@ -122,7 +130,7 @@ app.post("/register", async (req, res) => {
         
         const expiryDate = expiryObj.toISOString().split('T')[0];
 
-        // Remaining Days calculate karna (Expiry date - Aaj ki date)
+        // Remaining Days Calculation
         const diffTime = new Date(expiryDate) - new Date();
         const remainingDays = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
 
@@ -134,7 +142,7 @@ app.post("/register", async (req, res) => {
         
         res.json({ success: true, message: "Success!", membershipId: membershipId });
     } catch (error) {
-        console.log(error);
+        console.log("Register API Error:", error);
         res.status(500).json({ success: false, message: "Server error occurred." });
     }
 });
@@ -145,7 +153,7 @@ app.get("/admin/members", async (req, res) => {
         const result = await db.execute("SELECT * FROM members ORDER BY id DESC");
         res.json({ success: true, members: result.rows });
     } catch (error) {
-        console.log(error);
+        console.log("Fetch Members Error:", error);
         res.status(500).json({ success: false, message: "Database error" });
     }
 });
@@ -160,7 +168,7 @@ app.delete("/admin/members/:id", async (req, res) => {
         });
         res.json({ success: true, message: "Member deleted successfully!" });
     } catch (error) {
-        console.log(error);
+        console.log("Delete Member Error:", error);
         res.status(500).json({ success: false, message: "Error deleting member." });
     }
 });
@@ -179,7 +187,7 @@ app.put("/admin/members/:id", async (req, res) => {
         });
         res.json({ success: true, message: "Member details updated successfully!" });
     } catch (error) {
-        console.log(error);
+        console.log("Update Member Error:", error);
         res.status(500).json({ success: false, message: "Error updating member." });
     }
 });
@@ -199,7 +207,7 @@ app.post("/login", async (req, res) => {
             res.json({ success: false, message: "Mobile number not found!" });
         }
     } catch (error) {
-        console.log(error);
+        console.log("Login Error:", error);
         res.status(500).json({ success: false, message: "Something went wrong." });
     }
 });
