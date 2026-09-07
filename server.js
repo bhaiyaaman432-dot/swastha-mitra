@@ -105,7 +105,7 @@ app.get("/api/admin-logout", (req, res) => {
     res.redirect("/admin-login"); 
 });
 
-// API 1: Register
+// API 1: Register (Family Count Safe Handling)
 app.post("/register", async (req, res) => {
     try {
         const { fullName, mobile, email, age, address, health, planType } = req.body;
@@ -145,7 +145,7 @@ app.post("/register", async (req, res) => {
     }
 });
 
-// API 2: Get all Members
+// API 2: Get all Members (Mapped with clean Sr. No.)
 app.get("/admin/members", async (req, res) => {
     try {
         const result = await db.execute("SELECT * FROM members ORDER BY id DESC");
@@ -171,7 +171,7 @@ app.delete("/admin/members/:id", async (req, res) => {
         res.json({ success: true, message: "Member deleted successfully!" });
     } catch (error) {
         console.log("Delete Member Error:", error);
-        res.status(500).json({ success: false, message: "Error deleting member." });
+        res.status(500).json({ success: false, message: "Error deleting model/member." });
     }
 });
 
