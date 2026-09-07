@@ -14,13 +14,13 @@ app.use(session({
     cookie: { secure: false }
 }));
 
-// 🔴 TURSO CLOUD DATABASE CONNECTION (Credentials Added)
+// 🔴 TURSO CLOUD DATABASE CONNECTION
 const db = createClient({
     url: "libsql://swasthamitra-bhaiyaaman432-dot.aws-ap-south-1.turso.io",
     authToken: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODgxMTAxNTgsImlkIjoiMDFhMDUzYTctYmEwMS03NmRiLTg0MmEtMjYwNmVlMmFhYWUzIiwia2lkIjoiZl94Rmg1ZDdTOWdIXzNvdUdlRnFJbjd6Qy1RVlY2dU45bGNQeTVlYlpKTSIsInJpZCI6ImE5YWQ0ZmE5LTE0MmQtNDU5MC05NDhkLTZhMzgwYjcyZDM1YiJ9.lJoM-_kg4LJZgjZhmKM0-cNolJ_fUYS5wUoAAsDXixirUBCXiuSIUhoaSedR5ax7sEfH99P5YVraGOKyyK2ECQ"
 });
 
-// Table Create karna (Cloud par)
+// Table Create karna (Cloud par) - Naye columns ke sath
 db.execute(`
     CREATE TABLE IF NOT EXISTS members (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,16 +29,16 @@ db.execute(`
         mobile TEXT NOT NULL,
         email TEXT,
         age INTEGER,
-        family_members INTEGER,
+        family_count INTEGER,
         address TEXT,
         health TEXT,
-        payment_date TEXT,
-        start_date TEXT,
+        admission_date TEXT,
         expiry_date TEXT,
         amount_paid TEXT,
+        remaining_days INTEGER,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
-`).then(() => console.log("Cloud Database Table Ready!"))
+`).then(() => console.log("Cloud Database Table Ready with New Fields!"))
   .catch((err) => console.log("DB Table Error:", err));
 
 app.use(express.json());
@@ -74,7 +74,6 @@ app.post("/api/admin-login", (req, res) => {
     if (username === ADMIN_USER && password === ADMIN_PASS) {
         const otp = Math.floor(100000 + Math.random() * 900000).toString(); 
         req.session.pendingOtp = otp; 
-
         res.json({ success: true, requireOtp: true, otp: otp, message: "Password sahi hai!" });
     } else {
         res.json({ success: false, message: "Galat Username ya Password!" });
@@ -84,7 +83,6 @@ app.post("/api/admin-login", (req, res) => {
 // 🔴 API: OTP Check Karne Ke Liye
 app.post("/api/admin-verify-otp", (req, res) => {
     const { otp } = req.body;
-
     if (req.session.pendingOtp && req.session.pendingOtp === otp) {
         req.session.loggedIn = true; 
         req.session.pendingOtp = null; 
@@ -100,13 +98,13 @@ app.get("/api/admin-logout", (req, res) => {
     res.redirect("/admin-login"); 
 });
 
-// API 1: Register (Cloud DB Insert)
+// API 1: Register (Cloud DB Insert with Admission Date & Remaining Days Calculation)
 app.post("/register", async (req, res) => {
     try {
         const { fullName, mobile, email, age, familyMembers, address, health, planType } = req.body;
         
         const membershipId = "SM-" + Math.floor(100000 + Math.random() * 900000);
-        const paymentDate = new Date().toISOString().split('T')[0];
+        const admissionDate = new Date().toISOString().split('T')[0]; // Admission Date
         
         let expiryObj = new Date();
         let amountPaid = "";
@@ -124,10 +122,14 @@ app.post("/register", async (req, res) => {
         
         const expiryDate = expiryObj.toISOString().split('T')[0];
 
+        // Remaining Days calculate karna (Expiry date - Aaj ki date)
+        const diffTime = new Date(expiryDate) - new Date();
+        const remainingDays = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+
         await db.execute({
-            sql: `INSERT INTO members (membership_id, full_name, mobile, email, age, family_members, address, health, payment_date, start_date, expiry_date, amount_paid)
+            sql: `INSERT INTO members (membership_id, full_name, mobile, email, age, family_count, address, health, admission_date, expiry_date, amount_paid, remaining_days)
                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            args: [membershipId, fullName, mobile, email, age, familyMembers, address, health, paymentDate, paymentDate, expiryDate, amountPaid]
+            args: [membershipId, fullName, mobile, email, age, familyMembers, address, health, admissionDate, expiryDate, amountPaid, remainingDays]
         });
         
         res.json({ success: true, message: "Success!", membershipId: membershipId });
@@ -137,7 +139,7 @@ app.post("/register", async (req, res) => {
     }
 });
 
-// API 2: Get all Members (Cloud DB Select)
+// API 2: Get all Members
 app.get("/admin/members", async (req, res) => {
     try {
         const result = await db.execute("SELECT * FROM members ORDER BY id DESC");
@@ -148,7 +150,7 @@ app.get("/admin/members", async (req, res) => {
     }
 });
 
-// API 3: Delete Member (Cloud DB Delete)
+// API 3: Delete Member
 app.delete("/admin/members/:id", async (req, res) => {
     try {
         const { id } = req.params;
@@ -163,7 +165,7 @@ app.delete("/admin/members/:id", async (req, res) => {
     }
 });
 
-// API 4: Update Member (Cloud DB Update)
+// API 4: Update Member
 app.put("/admin/members/:id", async (req, res) => {
     try {
         const { id } = req.params;
@@ -171,7 +173,7 @@ app.put("/admin/members/:id", async (req, res) => {
         
         await db.execute({
             sql: `UPDATE members 
-                  SET full_name = ?, mobile = ?, email = ?, age = ?, family_members = ?, address = ?, health = ?
+                  SET full_name = ?, mobile = ?, email = ?, age = ?, family_count = ?, address = ?, health = ?
                   WHERE id = ?`,
             args: [fullName, mobile, email, age, familyMembers, address, health, id]
         });
@@ -182,7 +184,7 @@ app.put("/admin/members/:id", async (req, res) => {
     }
 });
 
-// API 5: Customer Login (Cloud DB Select)
+// API 5: Customer Login
 app.post("/login", async (req, res) => {
     try {
         const { mobile } = req.body;
