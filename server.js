@@ -114,13 +114,13 @@ app.post("/register", async (req, res) => {
 
         if (planType === "renew") {
             expiryObj.setMonth(expiryObj.getMonth() + 1);
-            amountPaid = "₹50 (1 Month Renewal)";
+            amountPaid = "Rs. 50 (1 Month Renewal)";
         } else if (planType === "first_6m") {
             expiryObj.setMonth(expiryObj.getMonth() + 6);
-            amountPaid = "₹99 (6 Months First Time)";
+            amountPaid = "Rs. 99 (6 Months First Time)";
         } else {
             expiryObj.setMonth(expiryObj.getMonth() + 3);
-            amountPaid = "₹50 (3 Months First Time)";
+            amountPaid = "Rs. 50 (3 Months First Time)";
         }
         
         const expiryDate = expiryObj.toISOString().split('T')[0];
